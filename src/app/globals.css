@@ -1,0 +1,708 @@
+/* =============================================================================
+   NUPCIAL HUB — Global Stylesheet
+   
+   Paleta de referência
+   ─────────────────────────────────────────────────────────────────────────────
+   Deep Void     #0B0B0F   Fundo da aplicação
+   Charcoal      #141418   Superfícies elevadas (cards, painéis)
+   Raised        #1E1E26   Elementos em destaque, scrollbar thumb
+   Rim           #2A2A36   Bordas e divisores
+   Ouro Antigo   #C4A45A   Accent principal — interações e destaques
+   Ivory         #F0EBE1   Texto principal
+   Ash           #6E6E80   Texto terciário e placeholders
+   Mist          #9E9EAE   Texto secundário e labels
+   ============================================================================= */
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. DIRETIVAS TAILWIND
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS (CSS Custom Properties)
+   Fonte única de verdade — consumidos pelo Tailwind e pelo CSS puro.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Fontes (variáveis injetadas pelo next/font no layout.tsx) */
+  --font-cormorant: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-jakarta:   'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-jetbrains: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* Superfícies — escala de cinzas profundos */
+  --color-void:    #0B0B0F;
+  --color-surface: #141418;
+  --color-raised:  #1E1E26;
+  --color-rim:     #2A2A36;
+
+  /* Accent — Ouro Antigo */
+  --color-gold:     #C4A45A;
+  --color-gold-dim: rgba(196, 164, 90, 0.15);
+  --color-gold-mid: rgba(196, 164, 90, 0.35);
+
+  /* Texto */
+  --color-ivory: #F0EBE1;
+  --color-mist:  #9E9EAE;
+  --color-ash:   #6E6E80;
+
+  /* Curvas de timing reutilizáveis */
+  --ease-spring:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-exp: cubic-bezier(0.19, 1, 0.22, 1);
+
+  --transition-fast:   150ms var(--ease-spring);
+  --transition-base:   250ms var(--ease-spring);
+  --transition-slow:   400ms var(--ease-spring);
+  --transition-slower: 600ms var(--ease-out-exp);
+
+  /* 3. Rolagem suave global + compensação para navbar sticky */
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. RESET DE CORES — BASE LAYER
+   Fundo Deep Void + texto Ivory como padrão da aplicação inteira.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: var(--color-rim);
+  }
+
+  html {
+    background-color: var(--color-void);
+    color: var(--color-ivory);
+    font-family: var(--font-jakarta);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-void);
+    color: var(--color-ivory);
+    font-family: var(--font-jakarta);
+    font-size: 1rem;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     4. SCROLLBAR PREMIUM — trilha escura, thumb fino, hover dourado
+     
+     Webkit (Chrome/Edge/Safari): pseudo-elements
+     Firefox: scrollbar-* properties
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  /* === Firefox === */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-raised) transparent;
+  }
+
+  /* === Webkit (Chrome, Edge, Safari, Opera) === */
+
+  /* Trilha — praticamente invisível, funde com o fundo */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Canto (interseção das barras H e V) — escondido */
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Thumb — fino e discreto, arredondado */
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-raised);
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+    transition: background-color 0.2s ease;
+  }
+
+  /* Thumb em hover — revela o Ouro Antigo */
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-gold);
+  }
+
+  /* Thumb sendo arrastado — ouro mais intenso */
+  ::-webkit-scrollbar-thumb:active {
+    background-color: #D4B46A;
+  }
+
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     5. SELEÇÃO DE TEXTO — fundo Ouro Antigo, texto escuro Deep Void
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-void);
+    -webkit-text-fill-color: var(--color-void);
+  }
+
+  ::-moz-selection {
+    background-color: var(--color-gold);
+    color: var(--color-void);
+  }
+
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     FOCUS VISIBLE — anel dourado acessível
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     TIPOGRAFIA BASE
+     Cormorant Garamond para headings, Jakarta para body/UI
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-cormorant);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--color-ivory);
+  }
+
+  p {
+    color: var(--color-mist);
+    line-height: 1.7;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  a:hover {
+    color: var(--color-gold);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  button {
+    cursor: pointer;
+    font-family: var(--font-jakarta);
+  }
+
+  input, textarea, select {
+    font-family: var(--font-jakarta);
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COMPONENTES REUTILIZÁVEIS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+
+  /* ── Layout ────────────────────────────────────────────────────────────── */
+
+  .container-app {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .container-narrow {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+
+  /* ── Tipografia Display ────────────────────────────────────────────────── */
+
+  .display-xl {
+    font-family: var(--font-cormorant);
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    color: var(--color-ivory);
+  }
+
+  .display-lg {
+    font-family: var(--font-cormorant);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--color-ivory);
+  }
+
+  .display-md {
+    font-family: var(--font-cormorant);
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--color-ivory);
+  }
+
+
+  /* ── Eyebrow / Label Ouro ──────────────────────────────────────────────── */
+
+  .label-gold {
+    @apply text-xs font-semibold tracking-[0.15em] uppercase;
+    color: var(--color-gold);
+    font-family: var(--font-jakarta);
+  }
+
+
+  /* ── Cards ─────────────────────────────────────────────────────────────── */
+
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-rim);
+    border-radius: 1rem;
+    transition:
+      border-color var(--transition-base),
+      box-shadow  var(--transition-base),
+      transform   var(--transition-base);
+  }
+
+  .card:hover {
+    border-color: var(--color-gold-mid);
+    box-shadow:
+      0 12px 40px -10px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(196, 164, 90, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .card-glass {
+    background: rgba(20, 20, 24, 0.85);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1rem;
+  }
+
+
+  /* ── Botões ────────────────────────────────────────────────────────────── */
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           font-semibold rounded-xl select-none whitespace-nowrap;
+    font-family: var(--font-jakarta);
+    transition: all 200ms var(--ease-spring);
+  }
+
+  .btn-sm { @apply px-3   py-1.5 text-sm;  }
+  .btn-md { @apply px-5   py-2.5 text-sm;  }
+  .btn-lg { @apply px-7   py-3.5 text-base; }
+  .btn-xl { @apply px-8   py-4   text-lg;  }
+
+  /* Primário — gradiente dourado */
+  .btn-gold {
+    background: linear-gradient(135deg, #C4A45A 0%, #A8873A 100%);
+    color: var(--color-void);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .btn-gold:hover {
+    background: linear-gradient(135deg, #D4B46A 0%, #B8974A 100%);
+    box-shadow:
+      0 4px 16px rgba(196, 164, 90, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+  }
+  .btn-gold:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Outline — borda sutil, hover dourado */
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--color-rim);
+    color: var(--color-ivory);
+  }
+  .btn-outline:hover {
+    border-color: rgba(196, 164, 90, 0.5);
+    color: var(--color-gold);
+    background: rgba(196, 164, 90, 0.05);
+  }
+
+  /* Ghost — sem fundo, quase invisível até hover */
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-mist);
+  }
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-ivory);
+  }
+
+  /* Perigo — vermelho suave */
+  .btn-danger {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #FCA5A5;
+  }
+  .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: rgba(239, 68, 68, 0.45);
+  }
+
+
+  /* ── Inputs ────────────────────────────────────────────────────────────── */
+
+  .input-base {
+    @apply w-full rounded-xl px-4 py-3 text-sm;
+    background: var(--color-raised);
+    border: 1px solid var(--color-rim);
+    color: var(--color-ivory);
+    font-family: var(--font-jakarta);
+    transition: border-color var(--transition-fast),
+                box-shadow  var(--transition-fast);
+  }
+  .input-base::placeholder {
+    color: var(--color-ash);
+  }
+  .input-base:focus {
+    outline: none;
+    border-color: rgba(196, 164, 90, 0.5);
+    box-shadow: 0 0 0 3px var(--color-gold-dim);
+  }
+  .input-base:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+
+  /* ── Divisores ─────────────────────────────────────────────────────────── */
+
+  .divider-gold {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(196, 164, 90, 0.3), transparent);
+  }
+
+  .divider-subtle {
+    height: 1px;
+    background: var(--color-rim);
+  }
+
+
+  /* ── Badges ────────────────────────────────────────────────────────────── */
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-gold   { background: rgba(196, 164, 90, 0.15); color: #C4A45A; border: 1px solid rgba(196, 164, 90, 0.25); }
+  .badge-green  { background: rgba(34, 197, 94, 0.10);  color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.20); }
+  .badge-red    { background: rgba(239, 68, 68, 0.10);  color: #F87171; border: 1px solid rgba(239, 68, 68, 0.20); }
+  .badge-orange { background: rgba(245, 158, 11, 0.10); color: #FCD34D; border: 1px solid rgba(245, 158, 11, 0.20); }
+  .badge-gray   { background: rgba(110, 110, 128, 0.12); color: #9E9EAE; border: 1px solid rgba(110, 110, 128, 0.18); }
+
+
+  /* ── Skeleton Loader ───────────────────────────────────────────────────── */
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-raised) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      var(--color-raised) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+    border-radius: 0.5rem;
+  }
+
+
+  /* ── Backdrop Overlay ──────────────────────────────────────────────────── */
+
+  .backdrop-dark {
+    background: rgba(11, 11, 15, 0.88);
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+  }
+
+
+  /* ── Efeitos de Texto ──────────────────────────────────────────────────── */
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #C4A45A 0%, #E8C97A 50%, #C4A45A 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .highlight-gold {
+    position: relative;
+    display: inline-block;
+  }
+  .highlight-gold::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0.1em;
+    background: linear-gradient(90deg, var(--color-gold), transparent);
+    border-radius: 9999px;
+  }
+
+
+  /* ── Glow Dourado ──────────────────────────────────────────────────────── */
+
+  .glow-gold {
+    box-shadow:
+      0 0 20px rgba(196, 164, 90, 0.20),
+      0 0 40px rgba(196, 164, 90, 0.08);
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITIES EXTRAS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+
+  .font-display { font-family: var(--font-cormorant); }
+  .font-body    { font-family: var(--font-jakarta);   }
+  .font-data    { font-family: var(--font-jetbrains); }
+
+  /* Zoom suave em imagens ao hover do container */
+  .img-hover-zoom          { overflow: hidden; }
+  .img-hover-zoom img      { transition: transform 0.6s var(--ease-spring); }
+  .img-hover-zoom:hover img { transform: scale(1.04); }
+
+  /* Espaçamento padrão entre seções */
+  .section-gap    { @apply py-16 lg:py-24; }
+  .section-gap-sm { @apply py-10 lg:py-16; }
+
+  /* Truncate multi-line */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Estado de loading — desabilita interação */
+  .loading-state {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* Borda com gradiente dourado via máscara */
+  .border-gradient-gold {
+    position: relative;
+    border-radius: 1rem;
+  }
+  .border-gradient-gold::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(196, 164, 90, 0.5), rgba(196, 164, 90, 0.1));
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   KEYFRAMES
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+@keyframes pulse-occupied {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%      { opacity: 0.7; transform: scale(0.95);  }
+}
+
+@keyframes gold-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(196, 164, 90, 0.20); }
+  50%      { box-shadow: 0 0 40px rgba(196, 164, 90, 0.40); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANIMAÇÕES COMPOSTAS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.page-enter {
+  animation: fade-in 0.4s ease forwards;
+}
+
+.modal-enter {
+  animation: slide-up 0.4s var(--ease-spring) forwards;
+}
+
+.card-enter {
+  animation: scale-in 0.3s var(--ease-spring) forwards;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REACT DAY PICKER — Calendário de Disponibilidade
+   Tema escuro com accent dourado e pulso nas datas ocupadas.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: var(--color-gold);
+  --rdp-background-color: var(--color-gold-dim);
+  --rdp-accent-color-dark: var(--color-gold);
+  --rdp-background-color-dark: var(--color-gold-dim);
+  --rdp-outline: 2px solid var(--color-gold);
+  --rdp-outline-selected: 2px solid var(--color-gold-mid);
+  margin: 0;
+  font-family: var(--font-jakarta);
+}
+
+.rdp-months {
+  justify-content: center;
+}
+
+.rdp-caption_label {
+  font-family: var(--font-cormorant);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-ivory);
+  letter-spacing: 0.05em;
+}
+
+.rdp-head_cell {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-ash);
+  text-transform: uppercase;
+}
+
+.rdp-day {
+  color: var(--color-mist);
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+
+.rdp-day:hover:not([disabled]):not(.rdp-day_selected) {
+  background: var(--color-raised);
+  color: var(--color-ivory);
+}
+
+.rdp-day_occupied {
+  background: rgba(220, 38, 38, 0.10) !important;
+  color: #F87171 !important;
+  border: 1px solid rgba(220, 38, 38, 0.20) !important;
+  animation: pulse-occupied 2.5s ease-in-out infinite;
+  cursor: pointer !important;
+}
+
+.rdp-day_available {
+  color: #4ADE80;
+}
+
+.rdp-day_disabled {
+  color: var(--color-rim) !important;
+  cursor: not-allowed !important;
+}
+
+.rdp-nav_button {
+  color: var(--color-ash);
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+.rdp-nav_button:hover {
+  background: var(--color-raised);
+  color: var(--color-ivory);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TOASTS (react-hot-toast)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.toast-dark {
+  background: var(--color-raised) !important;
+  color: var(--color-ivory) !important;
+  border: 1px solid var(--color-rim) !important;
+  font-family: var(--font-jakarta) !important;
+  font-size: 0.875rem !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ACESSIBILIDADE — Redução de movimento
+   Respeita a preferência do sistema operacional do usuário.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

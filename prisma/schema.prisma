@@ -1,0 +1,628 @@
+// =============================================================================
+// NUPCIAL HUB — Database Schema
+// PostgreSQL via Prisma ORM
+// Mercado inicial: Curitiba e Região Metropolitana (PR)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+/// Roles de usuário na plataforma
+enum UserRole {
+  BRIDE_GROOM  /// Noivos navegando a fachada pública (B2C)
+  CEREMONIAL   /// Cerimonialistas com acesso ao marketplace (B2B)
+  VENUE_OWNER  /// Donos de espaços que reivindicaram o perfil
+  ADMIN        /// Administradores da plataforma
+}
+
+/// Status de validação do cerimonialista
+enum UserStatus {
+  PENDING_VALIDATION  /// Aguardando revisão manual do perfil
+  ACTIVE              /// Acesso liberado a todos os recursos
+  SUSPENDED           /// Conta suspensa por violação
+  REJECTED            /// Cadastro rejeitado (não é profissional)
+}
+
+/// Tipologia dos espaços de eventos
+enum VenueType {
+  CHACARA
+  SALAO
+  HOTEL
+  PRAIA
+  BUFFET
+  CLUBE
+  ESPACO_INDUSTRIAL
+  COBERTURA
+  VILLA
+  FAZENDA
+  OUTROS
+}
+
+/// Tipo de evento para o qual o lead se destina
+enum EventType {
+  CASAMENTO
+  DEBUTANTE
+  CORPORATIVO
+  ANIVERSARIO
+  FORMATURA
+  BATIZADO
+  OUTROS
+}
+
+/// Estado do lead no marketplace de cerimonialistas
+enum LeadStatus {
+  AVAILABLE  /// Visível no mural, dados de contato ocultos
+  CLAIMED    /// Desbloqueado por um ou mais cerimonialistas
+  CLOSED_WON /// Contrato assinado, evento confirmado
+  EXPIRED    /// Lead expirou sem ser convertido
+}
+
+/// Modelo de aquisição do lead pelo cerimonialista
+enum LeadAcquisitionModel {
+  PAY_PER_LEAD  /// Débito imediato de créditos para liberar o contato
+  SUCCESS_FEE   /// Compromisso de comissão de 5%–10% pós-fechamento
+}
+
+/// Status da reserva/bloqueio de data no espaço
+enum BookingStatus {
+  BLOCKED    /// Bloqueado manualmente pelo dono do espaço
+  RESERVED   /// Reservado — aguardando confirmação de pagamento
+  CONFIRMED  /// Confirmado — data completamente ocupada
+}
+
+/// Origem do bloqueio de data
+enum BookingSource {
+  MANUAL  /// Clique no painel administrativo do espaço
+  ICAL    /// Sincronizado automaticamente via URL iCal
+  API     /// Integração futura com ERPs externos
+}
+
+/// Tipo de transação financeira na plataforma
+enum TransactionType {
+  CREDIT_PURCHASE       /// Compra de créditos (ex: pacote de 10 créditos)
+  LEAD_UNLOCK           /// Débito para desbloquear contato de lead
+  SUCCESS_FEE_RECEIVED  /// Comissão recebida após fechamento
+  ADMIN_ADJUSTMENT      /// Ajuste manual por admin
+  REFUND                /// Estorno
+}
+
+/// Tipo de post na comunidade de cerimonialistas
+enum PostType {
+  DISCUSSION  /// Discussão geral ou pergunta técnica
+  TIP         /// Dica ou conteúdo educativo
+  STAFF_NEEDED /// Mural de busca por assistentes de cerimônia
+  PARTNERSHIP  /// Proposta de parceria formal entre profissionais
+}
+
+/// Status de reivindicação de perfil de espaço
+enum ClaimStatus {
+  PENDING   /// Aguardando documentação ou revisão
+  APPROVED  /// Reivindicação aprovada
+  REJECTED  /// Reivindicação negada
+}
+
+// =============================================================================
+// MODELS — IDENTIDADE E AUTENTICAÇÃO
+// =============================================================================
+
+/// Usuário central da plataforma (todos os tipos)
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  phone        String?
+  avatarUrl    String?
+  role         UserRole   @default(BRIDE_GROOM)
+  status       UserStatus @default(ACTIVE)
+
+  // — Perfil público (visível para outros na rede B2B) ———————————————————————
+  bio              String?
+  city             String?
+  state            String?  @default("PR")
+  instagramHandle  String?
+  websiteUrl       String?
+
+  // — Dados específicos de Cerimonialista ——————————————————————————————————
+  /// Anos de experiência declarados pelo profissional
+  yearsExperience  Int?
+  /// Especializações (ex: ["CASAMENTO", "DEBUTANTE"])
+  specialties      EventType[]
+  /// Documentos/certidões enviados para validação
+  validationDocUrl String?
+  /// Data de aprovação do perfil pelo admin
+  approvedAt       DateTime?
+  /// Qual admin aprovou o perfil
+  approvedById     String?
+
+  // — Créditos para o marketplace ——————————————————————————————————————————
+  creditBalance Int @default(0)
+
+  // — Timestamps ——————————————————————————————————————————————————————————
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // — Relações ——————————————————————————————————————————————————————————————
+  sessions         Session[]
+  ownedVenues      Venue[]            @relation("VenueOwner")
+  venueClaims      VenueClaim[]
+  submittedLeads   Lead[]             @relation("LeadSubmitter")
+  leadClaims       LeadClaim[]
+  posts            CommunityPost[]
+  comments         PostComment[]
+  likes            PostLike[]
+  transactions     CreditTransaction[]
+  notifications    Notification[]
+  approvedUsers    User[]             @relation("ApprovedBy")
+  approver         User?              @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([role, status])
+  @@index([city, state])
+  @@index([email])
+  @@map("users")
+}
+
+/// Sessões de autenticação JWT/token
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+// =============================================================================
+// MODELS — ESPAÇOS DE EVENTOS
+// =============================================================================
+
+/// Espaço de evento — coração do diretório público B2C
+model Venue {
+  id   String @id @default(cuid())
+  /// Slug SEO-friendly para a URL pública (ex: "villa-bella-curitiba")
+  slug String @unique
+
+  // — Identidade —————————————————————————————————————————————————————————
+  name        String
+  description String?
+  type        VenueType
+
+  // — Localização ————————————————————————————————————————————————————————
+  address      String
+  neighborhood String
+  city         String    @default("Curitiba")
+  state        String    @default("PR")
+  zipCode      String?
+  /// Latitude para futuro mapa interativo
+  latitude     Float?
+  /// Longitude para futuro mapa interativo
+  longitude    Float?
+
+  // — Capacidade & Preços ————————————————————————————————————————————————
+  minCapacity    Int
+  maxCapacity    Int
+  pricePerHour   Float?
+  pricePerEvent  Float?
+  minimumBudget  Float?
+  /// Orçamento médio em R$ para exibição nos cards da busca
+  averageBudget  Float?
+
+  // — Mídia ——————————————————————————————————————————————————————————————
+  coverImageUrl String?
+  images        VenueImage[]
+
+  // — Comodidades & Restrições ——————————————————————————————————————————
+  /// Ex: ["WiFi", "Estacionamento", "Ar-condicionado", "Acessibilidade"]
+  amenities    String[]
+  /// Ex: ["Sem animais", "Sem fogos de artifício", "Capacidade reduzida à noite"]
+  restrictions String[]
+
+  // — Integração de Agenda ——————————————————————————————————————————————
+  /// URL pública do Google Calendar/Outlook no formato iCal (.ics)
+  icalUrl      String?
+  /// Última vez que o sistema sincronizou o iCal
+  icalLastSync DateTime?
+  /// ETag do último arquivo iCal para detectar mudanças sem re-parsing
+  icalEtag     String?
+
+  // — Status & Controle ——————————————————————————————————————————————————
+  isActive    Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  /// true quando um dono revindicou e foi aprovado
+  isClaimed   Boolean @default(false)
+  /// Pontuação de completude do perfil (0–100) para ranking interno
+  profileScore Int    @default(0)
+
+  // — SEO ————————————————————————————————————————————————————————————————
+  metaTitle       String?
+  metaDescription String?
+
+  // — Proprietário ———————————————————————————————————————————————————————
+  ownerId String?
+  owner   User?   @relation("VenueOwner", fields: [ownerId], references: [id])
+
+  // — Timestamps ——————————————————————————————————————————————————————————
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // — Relações ——————————————————————————————————————————————————————————————
+  claims    VenueClaim[]
+  bookings  VenueBooking[]
+  leads     Lead[]         @relation("LeadSourceVenue")
+
+  @@index([city, neighborhood])
+  @@index([type])
+  @@index([maxCapacity])
+  @@index([isActive, isFeatured])
+  @@index([slug])
+  @@map("venues")
+}
+
+/// Fotos do espaço — suporta galeria assimétrica
+model VenueImage {
+  id        String  @id @default(cuid())
+  venueId   String
+  url       String
+  blurHash  String? /// Placeholder blur gerado no upload (ex: BlurHash)
+  caption   String?
+  isPrimary Boolean @default(false)
+  /// Ordem de exibição na galeria (0 = capa)
+  order     Int     @default(0)
+  /// Dimensões para layout de grid assimétrico
+  width     Int?
+  height    Int?
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, order])
+  @@map("venue_images")
+}
+
+/// Processo de reivindicação de perfil por um proprietário
+model VenueClaim {
+  id          String      @id @default(cuid())
+  venueId     String
+  userId      String
+  status      ClaimStatus @default(PENDING)
+
+  /// URL do documento comprobatório (CNPJ, contrato de locação, etc.)
+  documentUrl String?
+  notes       String?
+
+  reviewedAt   DateTime?
+  reviewedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([venueId])
+  @@index([userId])
+  @@index([status])
+  @@map("venue_claims")
+}
+
+// =============================================================================
+// MODELS — AGENDA E DISPONIBILIDADE
+// =============================================================================
+
+/// Bloqueio de data no calendário de um espaço
+/// Suporta as 3 vias de integração: Manual, iCal e API
+model VenueBooking {
+  id      String        @id @default(cuid())
+  venueId String
+  /// Data do evento (armazenada como date-only — hora sempre 00:00 UTC)
+  date    DateTime      @db.Date
+  status  BookingStatus @default(BLOCKED)
+  source  BookingSource @default(MANUAL)
+
+  // — Metadados do evento (quando disponível) ———————————————————————————
+  eventType   EventType?
+  clientName  String?    /// Nome do cliente (não exibido publicamente)
+  notes       String?
+
+  // — Dados de sincronização iCal ———————————————————————————————————————
+  /// UID do evento no arquivo .ics (para evitar duplicatas na re-sync)
+  externalId  String?
+  /// Título do evento no iCal (ex: "Casamento Silva & Costa")
+  externalTitle String?
+  externalStart DateTime?
+  externalEnd   DateTime?
+
+  // — Timestamps ——————————————————————————————————————————————————————————
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  /// Garante que cada espaço só tem um registro por data
+  @@unique([venueId, date])
+  @@index([venueId, date])
+  @@index([source])
+  @@map("venue_bookings")
+}
+
+// =============================================================================
+// MODELS — MARKETPLACE DE LEADS (B2B)
+// =============================================================================
+
+/// Lead capturado quando um noivo tenta agendar uma data ocupada,
+/// ou quando um cerimonialista cadastra manualmente (estava lotado).
+model Lead {
+  id String @id @default(cuid())
+
+  // — Dados de Contato (OCULTOS no mural público do marketplace) ————————
+  contactName  String
+  contactPhone String /// WhatsApp com DDD
+  contactEmail String?
+
+  // — Dados Técnicos (VISÍVEIS no mural para cerimonialistas) ———————————
+  eventDate       DateTime   @db.Date
+  city            String
+  neighborhood    String?
+  eventType       EventType  @default(CASAMENTO)
+  guestCount      Int
+  /// Orçamento estimado declarado pelo noivo (em R$)
+  estimatedBudget Float
+  notes           String?
+
+  // — Origem do Lead ————————————————————————————————————————————————————
+  /// Espaço que estava ocupado e disparou o modal de captura
+  sourceVenueId String?
+  sourceVenue   Venue?  @relation("LeadSourceVenue", fields: [sourceVenueId], references: [id])
+  /// Cerimonialista que cadastrou manualmente (se aplicável)
+  submitterId   String?
+  submitter     User?   @relation("LeadSubmitter", fields: [submitterId], references: [id])
+  /// Canal de origem: "VENUE_MODAL" | "MANUAL_CEREMONIAL" | "LANDING_PAGE"
+  sourceChannel String  @default("VENUE_MODAL")
+
+  // — Controle do Marketplace ——————————————————————————————————————————
+  status    LeadStatus @default(AVAILABLE)
+  expiresAt DateTime
+  /// Quantos cerimonialistas já desbloquearam este lead
+  claimCount Int       @default(0)
+  /// Máximo de cerimonialistas que podem comprar este lead (evita saturação)
+  maxClaims  Int       @default(5)
+
+  // — Configuração de Monetização ——————————————————————————————————————
+  /// Modelos permitidos para este lead específico
+  allowedModels        LeadAcquisitionModel[]
+  /// Custo em créditos para desbloquear (Pay-per-Lead)
+  creditCost           Int                   @default(5)
+  /// Percentual de comissão no modelo Success Fee
+  successFeePercentage Float                 @default(7.5)
+
+  // — Timestamps ——————————————————————————————————————————————————————————
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // — Relações ——————————————————————————————————————————————————————————————
+  claims LeadClaim[]
+
+  @@index([status, eventDate])
+  @@index([city])
+  @@index([eventDate])
+  @@index([estimatedBudget])
+  @@map("leads")
+}
+
+/// Registro quando um cerimonialista desbloqueia um lead
+model LeadClaim {
+  id           String               @id @default(cuid())
+  leadId       String
+  ceremonialId String
+  model        LeadAcquisitionModel
+
+  // — Status do relacionamento lead<>cerimonialista ——————————————————————
+  /// ACTIVE | CLOSED_WON | CLOSED_LOST | DISPUTED
+  status String @default("ACTIVE")
+
+  // — Success Fee (quando model = SUCCESS_FEE) ——————————————————————————
+  /// Valor final do contrato fechado pelo cerimonialista
+  contractValue   Float?
+  /// Comissão calculada automaticamente (contractValue × successFeePercentage)
+  commissionDue   Float?
+  commissionPaid  Boolean   @default(false)
+  commissionPaidAt DateTime?
+
+  // — Timestamps ——————————————————————————————————————————————————————————
+  unlockedAt DateTime  @default(now())
+  closedAt   DateTime?
+
+  // — Relações ——————————————————————————————————————————————————————————————
+  lead        Lead               @relation(fields: [leadId], references: [id])
+  ceremonial  User               @relation(fields: [ceremonialId], references: [id])
+  transaction CreditTransaction?
+
+  /// Um cerimonialista não pode comprar o mesmo lead duas vezes
+  @@unique([leadId, ceremonialId])
+  @@index([ceremonialId, status])
+  @@index([leadId])
+  @@map("lead_claims")
+}
+
+// =============================================================================
+// MODELS — FINANCEIRO & CRÉDITOS
+// =============================================================================
+
+/// Ledger imutável de todas as movimentações de crédito/dinheiro
+model CreditTransaction {
+  id          String          @id @default(cuid())
+  userId      String
+  type        TransactionType
+  /// Positivo = entrada de créditos; Negativo = débito de créditos
+  amount      Int
+  /// Saldo após esta transação (snapshot para auditoria)
+  balanceAfter Int
+  description String
+  metadata    Json?           /// Dados extras (ex: packageName, leadCity, etc.)
+
+  // — Relações opcionais com outras entidades ——————————————————————————
+  leadClaimId String?    @unique
+  leadClaim   LeadClaim? @relation(fields: [leadClaimId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([type])
+  @@map("credit_transactions")
+}
+
+// =============================================================================
+// MODELS — COMUNIDADE DE CERIMONIALISTAS (B2B Social)
+// =============================================================================
+
+/// Post na comunidade privada de cerimonialistas
+model CommunityPost {
+  id       String   @id @default(cuid())
+  authorId String
+  type     PostType @default(DISCUSSION)
+  title    String
+  content  String   @db.Text
+  tags     String[]
+  imageUrls String[]
+
+  // — Campos específicos para STAFF_NEEDED ——————————————————————————————
+  staffEventDate DateTime?
+  staffEventCity String?
+  staffNeeded    String?   /// Descrição do perfil necessário
+  staffBudget    Float?
+
+  // — Controle de visibilidade ——————————————————————————————————————————
+  isPinned  Boolean @default(false)
+  isActive  Boolean @default(true)
+  viewCount Int     @default(0)
+
+  // — Timestamps ——————————————————————————————————————————————————————————
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // — Relações ——————————————————————————————————————————————————————————————
+  author   User          @relation(fields: [authorId], references: [id])
+  comments PostComment[]
+  likes    PostLike[]
+
+  @@index([type, createdAt])
+  @@index([authorId])
+  @@map("community_posts")
+}
+
+/// Comentário em um post da comunidade
+model PostComment {
+  id       String @id @default(cuid())
+  postId   String
+  authorId String
+  content  String @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id])
+
+  @@index([postId, createdAt])
+  @@map("post_comments")
+}
+
+/// Like em um post (evita duplicatas via @@unique)
+model PostLike {
+  id     String @id @default(cuid())
+  postId String
+  userId String
+
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_likes")
+}
+
+// =============================================================================
+// MODELS — NOTIFICAÇÕES
+// =============================================================================
+
+/// Notificação in-app para o usuário
+model Notification {
+  id      String  @id @default(cuid())
+  userId  String
+  title   String
+  message String
+  /// LEAD_AVAILABLE | LEAD_CLAIMED | POST_COMMENT | PROFILE_APPROVED | CREDIT_ADDED
+  type    String
+  isRead  Boolean @default(false)
+  /// Deep link interno (ex: "/cerimonialistas/leads?id=xxx")
+  link    String?
+  /// Payload extra para renderização contextual
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// =============================================================================
+// MODELS — CONFIGURAÇÕES DA PLATAFORMA
+// =============================================================================
+
+/// Configurações globais editáveis pelo admin (key-value store)
+model PlatformConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @db.Text
+  /// Tipo do valor para parsing: "string" | "number" | "boolean" | "json"
+  type  String @default("string")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_config")
+}
+
+// =============================================================================
+// MODELS — AUDITORIA
+// =============================================================================
+
+/// Log imutável de ações críticas para compliance e debugging
+model AuditLog {
+  id         String @id @default(cuid())
+  actorId    String?  /// ID do usuário que executou a ação (null = sistema)
+  action     String   /// Ex: "LEAD_UNLOCKED", "VENUE_CLAIMED", "USER_SUSPENDED"
+  entityType String   /// Ex: "Lead", "Venue", "User"
+  entityId   String
+  before     Json?    /// Estado anterior da entidade
+  after      Json?    /// Estado posterior da entidade
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
